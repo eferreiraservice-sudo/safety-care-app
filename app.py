@@ -14,32 +14,29 @@ load_dotenv()
 chave = os.getenv("GOOGLE_API_KEY")
 
 # --- FUNÇÃO PARA GERAR PDF ---
-def gerar_pdf(texto_laudo, nome_arquivo="laudo_tecnico.pdf"):
+def gerar_pdf(texto_laudo, imagem_pil):
     pdf = FPDF()
     pdf.add_page()
     
     # Cabeçalho Safety&Care
     pdf.set_font("Arial", 'B', 16)
-    pdf.set_text_color(0, 51, 102) # Azul Marinho
+    pdf.set_text_color(0, 51, 102)
     pdf.cell(0, 10, "Safety&Care - Inteligência em Segurança", ln=True, align='C')
-    
-    pdf.set_font("Arial", 'I', 10)
-    pdf.set_text_color(100, 100, 100)
-    data_atual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    pdf.cell(0, 10, f"Relatório Gerado em: {data_atual}", ln=True, align='C')
-    pdf.ln(10)
-    
-    # Título do Laudo
-    pdf.set_font("Arial", 'B', 12)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 10, "LAUDO TÉCNICO PRELIMINAR DE INSPEÇÃO", ln=True)
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(5)
-    
-    # Conteúdo (Texto da IA)
+
+    # Inserir a Foto (Salvando uma cópia temporária para o PDF ler)
+    temp_path = "temp_evidencia.png"
+    imagem_pil.save(temp_path)
+    # x=55 centraliza a imagem no A4
+    pdf.image(temp_path, x=55, w=100) 
+    pdf.ln(10)
+
+    # Conteúdo do Laudo
     pdf.set_font("Arial", size=11)
-    # O multi_cell cuida das quebras de linha automáticas
-    pdf.multi_cell(0, 8, texto_laudo.encode('latin-1', 'replace').decode('latin-1'))
+    pdf.set_text_color(0, 0, 0)
+    # Limpa caracteres especiais para não dar erro no PDF
+    texto_limpo = texto_laudo.encode('latin-1', 'ignore').decode('latin-1')
+    pdf.multi_cell(0, 8, texto_limpo)
     
     return bytes(pdf.output())
 
@@ -70,16 +67,21 @@ if arquivo:
             st.error(f"Erro: {e}")
 
     # Se o laudo já existe, mostra o botão de PDF
-    if "laudo" in st.session_state:
-        st.markdown("---")
-        st.markdown("### 📋 Relatório Gerado")
-        st.write(st.session_state.laudo)
+    # Verificamos se já existe um laudo gerado na memória do site
+if "laudo" in st.session_state:
+    st.markdown("---")
+    st.subheader("📄 Relatório Técnico")
+    st.write(st.session_state.laudo)
+
+    # BOTÃO ATUALIZADO: Ele gera o PDF usando o texto E a imagem
+    if st.button("Gerar PDF do Laudo"):
+        # Aqui passamos o texto (session_state.laudo) e a foto (img)
+        pdf_bytes = gerar_pdf(st.session_state.laudo, img)
         
-        # Botão de Download
-        pdf_bytes = gerar_pdf(st.session_state.laudo)
         st.download_button(
-            label="📥 Baixar Laudo em PDF",
+            label="📥 Baixar Laudo com Evidência",
             data=pdf_bytes,
-            file_name=f"Laudo_SafetyCare_{datetime.now().strftime('%d%m%Y')}.pdf",
+            file_name="laudo_safety_care.pdf",
             mime="application/pdf"
+        
         )
